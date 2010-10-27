@@ -370,15 +370,22 @@ function Export_adminapi_importPack($args){
                 while($data_dir_cont = readdir($data_dir_id)){
                     if(($data_dir_cont != '.') && ($data_dir_cont != '..' && ($data_dir_cont != 'metadata.xml'))){
                         $table = substr($data_dir_cont, 0, -4);
+                        $columns = DBUtil::metaColumnNames($table);
                         DBUtil::truncateTable($table);
                         $XML_file = simplexml_load_file($root_dir . '/export_pack/System/' . $data_dir_cont);
-                        
                         foreach($XML_file->row as $row){
                             $fields = '';
                             $values = '';
                             foreach($row->children() as $field){
-								$fields .= $field->getName().',';
-								$values .= ($field == '$$NULL$$') ? "NULL," :"'".str_replace("'", "''", utf8_decode($field))."',";
+								$fieldname = $field->getName();
+								if (in_array($fieldname, $columns)){
+									$fields .= $fieldname.',';
+									$field_value = str_replace("'", "''",  utf8_decode($field));
+									$field_value = str_replace("\''", "\'", $field_value);
+									$values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";	
+									//$values .= ($field == '$$NULL$$') ? "NULL," :"'".ereg_replace("[^\\](')[^']|^(')", "\\2'", utf8_decode($field))."',";
+									//$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
+								}
                                 //$row_array[$field->getName()] = utf8_decode($field);
                             }
                             $sql = "INSERT INTO ".pnConfigGetVar('prefix').'_'.$table."(".substr($fields,0,-1).") VALUES(".substr($values,0,-1).")";
@@ -451,7 +458,10 @@ function Export_adminapi_importPack($args){
                 $where = 'WHERE `module_name` = "'.$dir_cont.'"';
                 $def_vars = DBUtil::selectObjectArray('export_routes', $where);
                 $vars = array();
-                foreach ($def_vars as $var) $vars[] = $var['variable'];
+                foreach ($def_vars as $var){ 
+					$vars[] = $var['variable'];
+					if(($var['root_module']==$var['module_name'])&&(!in_array($var['root_variable'], $vars))) $vars[] = $var['root_variable'];
+				}
                 foreach($objDOM->moduleVars->children() as $var){
                     $var_name = $var->getName();
                     $var_value = utf8_decode($var);
@@ -479,7 +489,10 @@ function Export_adminapi_importPack($args){
 								foreach($row->children() as $field){
 									if (in_array($field->getName(), $columns)){
 										$fields .= $field->getName().',';
-										$values .= ($field == '$$NULL$$') ? "NULL," :"'".str_replace("'", "''", utf8_decode($field))."',";
+										$field_value = str_replace("'", "''",  utf8_decode($field));
+										$field_value = str_replace("\''", "\'", $field_value);
+										$values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";
+										//$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
 										//$row_array[$field->getName()] = utf8_decode($field);
 									}
 								}
@@ -633,6 +646,8 @@ function Export_adminapi_getModulesFromPack($args){
 	
     $pack_path = FormUtil::getPassedValue('pack_path', isset($args['pack_path']) ? $args['pack_path'] : null, 'REQUEST');
 	$list = array();
+	$versions_list = array();
+	$zk_version = '';
 	
 	$tar = new tar();
 	if(!$tar->openTar($pack_path,FALSE)) return LogUtil::registerError(__('Could not open package', $dom)); 
@@ -641,7 +656,18 @@ function Export_adminapi_getModulesFromPack($args){
 		foreach($tar->files as $id => $information) {
 			$content['name'] = $information[name];
 			$list[] = $content;
-		}
+			// Get the version of each module
+			if(substr($information[name], strrpos($information[name], '/')) == '/metadata.xml'){
+				if(substr($information[name], strpos($information[name], '/')) != '/System/metadata.xml'){
+					$version = explode('moduleVersion', $information[file]);
+					$version = substr($version['1'], 1, strlen($version['1'])-3);
+					$versions_list[substr($information[name], 12, strlen(substr($information[name], 12, -18)))] = $version;
+				}
+				else{
+					$zk_version = $information[file];
+				}
+			}
+		}	
 	}
 		
 	/*$za = new ZipArchive();
@@ -686,6 +712,8 @@ function Export_adminapi_getModulesFromPack($args){
                     $select = DBUtil::selectObjectArray('modules', $where);
                     $displayname = $select['0']['displayname'];
 	                $modules_list['Available'][$filename['1']]['displayname'] = $displayname;
+	                $modules_list['Available'][$filename['1']]['req_version'] = $versions_list[$filename['1']];
+	                $modules_list['Available'][$filename['1']]['local_version'] = $select['0']['version'];
 	                if (!in_array($filename['1'], $module_name)) $module_name[] = $filename['1'];
 	            }else{    
 					$modules_list['Unavailable'][] = $filename['1'];  	                    
@@ -693,6 +721,7 @@ function Export_adminapi_getModulesFromPack($args){
 			}
 		}
 	}
+	$modules_list['ZkVersion'] = $zk_version;
 	return $modules_list;
 }
 
@@ -709,9 +738,13 @@ function Export_adminapi_backupModules($args){
 	}
 	
     $modules_selected = FormUtil::getPassedValue('modules_selected', isset($args['modules_selected']) ? $args['modules_selected'] : null, 'REQUEST');
+	$backup_folder = pnModGetVar("export", "backup_folder");
+	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+		$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
+	}
 	
 	if($backup_file = pnModAPIFunc ('Export', 'admin', 'getExportPack', array('modules_selected'=>$modules_selected,
-                                                                   		  'root_dir' => pnModGetVar("export", "backup_folder")))){
+                                                                   		  'root_dir' => $backup_folder))){
 	    return true;
     }else{
         return LogUtil::registerError(__('The backup package cannot be generated', $dom));

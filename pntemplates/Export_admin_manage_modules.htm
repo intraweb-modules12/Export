@@ -63,23 +63,24 @@
 									<!--[else]-->
 										<span style="color:#FF0000;"><!--[$route.variable]--></span>
 									<!--[/if]-->
-									<br />
-									<b><!--[gt text="Route: "]--></b>
-									<!--[if $route.route_chk eq '0']-->
-										<span style="color:#FF0000; font-style:italic;"><!--[gt text="erroneous route"]--></span>
-									<!--[elseif $route.route_chk eq '-2']-->
-										<span style="color:#FF0000; font-style:italic;"><!--[gt text=" contains a route to an unwritable directory"]--></span>
-									<!--[else]-->
-										<span style="color:#009900;"><!--[$route.route_chk]--></span>
-									
-									<!--[/if]-->
-									<!--[if $route.root_module != '' and $route.root_variable != '']-->
-										<span style="font-style:italic; font-size:x-small;">
-										<br><!--[gt text="This variable needs the value of the variable "]-->
-										<b><!--[$route.root_variable]--></b>
-										<br><!--[gt text="From the module "]-->
-										<b><!--[$route.root_module]--></b>
-										</span>
+									<!--[if $no_allowed neq '1']-->
+										<br />
+										<b><!--[gt text="Route: "]--></b>
+										<!--[if $route.route_chk eq '0']-->
+											<span style="color:#FF0000; font-style:italic;"><!--[gt text="erroneous route"]--></span>
+										<!--[elseif $route.route_chk eq '-2']-->
+											<span style="color:#FF0000; font-style:italic;"><!--[gt text=" contains a route to an unwritable directory"]--></span>
+										<!--[else]-->
+											<span style="color:#009900;"><!--[$route.route_chk]--></span>
+										<!--[/if]-->
+										<!--[if $route.root_module != '' and $route.root_variable != '']-->
+											<span style="font-style:italic; font-size:x-small;">
+											<br><!--[gt text="This variable needs the value of the variable "]-->
+											<b><!--[$route.root_variable]--></b>
+											<br><!--[gt text="From the module "]-->
+											<b><!--[$route.root_module]--></b>
+											</span>
+										<!--[/if]-->
 									<!--[/if]-->
 									<div align="right">
 										<a href=<!--[pnmodurl modname="Export" type="admin" func="addVariable" variable=$route.variable mod=$module.name root_variable=$route.root_variable root_module=$route.root_module var_id=$route.var_id]-->><!--[pnimg modname='core' src='edit.gif' set='icons/extrasmall'   __alt="Edit" __title="Edit"]--></a>

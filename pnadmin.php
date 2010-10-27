@@ -15,16 +15,19 @@ function Export_admin_main(){
 	$pnRender = pnRender::getInstance('Export',false);
 	
 	$backup_folder = FormUtil::getPassedValue('backup_folder', isset($args['backup_folder']) ? $args['backup_folder'] : null, 'POST');
-	
+	$root = '';
+	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+		$root = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data';
+	}
 	if($backup_folder) pnModSetVar('Export', 'backup_folder', $backup_folder);
 	else $backup_folder = pnModGetVar('Export', 'backup_folder');
     
 	//Check if the backup folder exists and is writable
 	if($backup_folder != ""){
-	    if(!file_exists($backup_folder)){
+	    if(!file_exists($root.'/'.$backup_folder)){
 	        LogUtil::registerError(__('Backup folder don\'t exists', $dom)); 
 	    }else{
-    	    if(!is_writeable($backup_folder)){
+    	    if(!is_writeable($root.'/'.$backup_folder)){
     	        LogUtil::registerError(__('Backup folder is not writeable', $dom));   
     	    } 
 	    }
@@ -214,6 +217,8 @@ function Export_admin_import(){
 	    // Show a list with the modules of the package
 	    $modules_list = pnModAPIFunc ('Export', 'admin', 'getModulesFromPack', array('pack_path'=>$temp_path));
 	    $unavailable_list = $modules_list['Unavailable'];
+	    if(pnConfigGetVar('Version_Num') != $modules_list['ZkVersion']) LogUtil::registerError(__f('Zikula version %s is required.', $modules_list['ZkVersion'], $dom));
+	    
 	    $modules_list = $modules_list['Available'];
 	    $pnRender -> assign('temp_path', $temp_path);
 	    $pnRender -> assign('modules_list', $modules_list);
@@ -221,6 +226,9 @@ function Export_admin_import(){
 	    
 	    // Check if backup folder is available
     	$backup_folder = pnModGetVar("export", "backup_folder");
+		if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+			$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
+		}
     	if(pnModGetVar("export", "backup_folder")){    	    
     	    if(!file_exists($backup_folder)){
     	        $pnRender -> assign('backup_error', __('Backup folder don\'t exists', $dom));
@@ -267,6 +275,9 @@ function Export_admin_backup(){
 	$dom = ZLanguage::getModuleDomain('Export');
 	$pnRender = pnRender::getInstance('Export',false);
 	$backup_folder = pnModGetVar("export", "backup_folder");
+	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+		$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
+	}
     
 	//Check if the backup folder exists and is writable
 	if(pnModGetVar("export", "backup_folder")){
@@ -287,7 +298,7 @@ function Export_admin_backup(){
 	$i=0;
 	
     while (false !== ($file = readdir($handle))) {
-        if(($file != '.') && ($file != '..')){
+		if(substr($file, 0, 1)!='.'){
             $backup_files[$i]['file'] = $file;
             $time = substr( substr($file, strlen('export_pack_')),0 ,-strlen('.tar')); 
             $backup_files[$i]['date'] = date("F j, Y, g:i a", $time);
@@ -316,10 +327,14 @@ function Export_admin_backup_del(){
 	$pnRender = pnRender::getInstance('Export',false);
 	$confirm = FormUtil::getPassedValue('confirm', isset($args['confirm']) ? $args['confirm'] : null, 'POST');
 	$backup_file = FormUtil::getPassedValue('backup_file', isset($args['backup_file']) ? $args['backup_file'] : null, 'GETPOST');
+	$backup_folder = pnModGetVar("export", "backup_folder");
+	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+		$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
+	}
 	
 	if($confirm){
 	    // delete the backup file
-	    if(!unlink(pnModGetVar("export", "backup_folder") . '/' . $backup_file)){
+	    if(!unlink($backup_folder . '/' . $backup_file)){
 	        LogUtil::registerError(__('It\'s not possible to delete the backup', $dom));
 	    }
 	    return pnModFunc ('Export', 'admin', 'backup');   
@@ -347,9 +362,13 @@ function Export_admin_backup_restore(){
 	$modules_selected = FormUtil::getPassedValue('modules_selected', isset($args['modules_selected']) ? $args['modules_selected'] : null, 'POST');
 	$confirm = FormUtil::getPassedValue('confirm', isset($args['confirm']) ? $args['confirm'] : null, 'POST');
 	$backup_file = FormUtil::getPassedValue('backup_file', isset($args['backup_file']) ? $args['backup_file'] : null, 'GETPOST');
+	$backup_folder = pnModGetVar("export", "backup_folder");
+	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
+		$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
+	}
 	
 	if($confirm){
-	    $backup_modules =  pnModAPIFunc ('Export', 'admin', 'importPack', array('pack_path' => pnModGetVar("export", "backup_folder") . '/' . $backup_file,
+	    $backup_modules =  pnModAPIFunc ('Export', 'admin', 'importPack', array('pack_path' => $backup_folder . '/' . $backup_file,
                                                                                  'modules_selected' => $modules_selected));
 	    $pnRender -> assign('backup_modules', $backup_modules);
 	    return $pnRender -> fetch('Export_admin_backup_report.htm');	      
@@ -377,7 +396,8 @@ function Export_admin_manage(){
 	
 	$mod = FormUtil::getPassedValue('mod', isset($args['mod']) ? $args['mod'] : null, 'REQUEST');
 	$dom = ZLanguage::getModuleDomain('Export');
-	$pnRender = pnRender::getInstance('Export',false); 
+	$pnRender = pnRender::getInstance('Export',false);
+	$no_allowed = ((pnModGetVar('export', 'import_user') != '') && (pnModGetVar('export', 'import_user') != pnUserGetVar('uname'))) ? '1' : '0'; 
 	
 	//Es busquen tots els possibles moduls a exportar i es passa una llista a la plantilla
 	if(!$modules_info = pnModAPIFunc('Export', 'admin', 'modulesInfo')){
@@ -397,6 +417,7 @@ function Export_admin_manage(){
 	}
     $pnRender -> assign('prefix', pnConfigGetVar('prefix')); 
     $pnRender -> assign('modules_info', $modules_result);
+    $pnRender -> assign('no_allowed', $no_allowed);
     return $pnRender -> fetch('Export_admin_manage_modules.htm');
 }
 
