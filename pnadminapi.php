@@ -359,8 +359,8 @@ function Export_adminapi_importPack($args){
                 //Check if the origin zikula version is the same of the actual version
                 $objDOM = simplexml_load_file($root_dir . '/export_pack/System/metadata.xml');
                 $zikula_version = utf8_decode($objDOM->zikulaVersion);
-                if ($zikula_version != pnConfigGetVar('Version_Num')){
-                recursive_remove_directory($root_dir);
+                if ($zikula_version != pnConfigGetVar('Version_Num')){					
+					recursive_remove_directory($root_dir);
                     return LogUtil::registerError(__f('Zikula version %s is required',$zikula_version , $dom));
                 }
                 // Import all system tables
@@ -664,7 +664,8 @@ function Export_adminapi_getModulesFromPack($args){
 					$versions_list[substr($information[name], 12, strlen(substr($information[name], 12, -18)))] = $version;
 				}
 				else{
-					$zk_version = $information[file];
+					$zk_version = explode('zikulaVersion', $information[file]);
+					$zk_version = substr($zk_version['1'], 1, strlen($zk_version['1'])-3);
 				}
 			}
 		}	

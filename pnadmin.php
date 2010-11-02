@@ -17,17 +17,17 @@ function Export_admin_main(){
 	$backup_folder = FormUtil::getPassedValue('backup_folder', isset($args['backup_folder']) ? $args['backup_folder'] : null, 'POST');
 	$root = '';
 	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
-		$root = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data';
+		$root = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/';
 	}
 	if($backup_folder) pnModSetVar('Export', 'backup_folder', $backup_folder);
 	else $backup_folder = pnModGetVar('Export', 'backup_folder');
     
 	//Check if the backup folder exists and is writable
 	if($backup_folder != ""){
-	    if(!file_exists($root.'/'.$backup_folder)){
+	    if(!file_exists($root.$backup_folder)){
 	        LogUtil::registerError(__('Backup folder don\'t exists', $dom)); 
 	    }else{
-    	    if(!is_writeable($root.'/'.$backup_folder)){
+    	    if(!is_writeable($root.$backup_folder)){
     	        LogUtil::registerError(__('Backup folder is not writeable', $dom));   
     	    } 
 	    }
