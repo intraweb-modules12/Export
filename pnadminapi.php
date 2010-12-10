@@ -7,16 +7,16 @@ require ("includes/tar.class.php");
  * @author:    Felix Casanellas (felix.casanellas@gmail.com)
  * @return:		An array with the modules info
 */
-function Export_adminapi_modulesInfo(){	
+function Export_adminapi_modulesInfo(){
 	// Security check
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
 	$return_list = array();
 	$allowed_modules = array();
 	$all_modules = pnModGetModsTable();
-	
+
 	$i = 0;
 	foreach ($all_modules as $module) {
 		if ($module['state'] == '3' && $module['type'] != '3'){
@@ -35,17 +35,17 @@ function Export_adminapi_modulesInfo(){
 					$return_list[$i]['routes'][$key]['route_chk'] = pnModAPIFunc('Export', 'admin', 'checkRoute', array(
 																					'module_name' => $mod['module_name'],
 																					'variable' => $mod['variable']));
-				}						
+				}
 			}
 			if (!empty($module_tables)){
 				foreach ($module_tables as $key => $mod){
 					$return_list[$i]['tables'][$key] = $mod['table_name'];
 				}
-			}							
+			}
 			$i++;
 		}
 	}
-	
+
 	return $return_list;
 }
 
@@ -60,10 +60,10 @@ function Export_adminapi_checkRoute($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
 	$module_name = FormUtil::getPassedValue('module_name', isset($args['module_name']) ? $args['module_name'] : null, 'REQUEST');
     $variable = FormUtil::getPassedValue('variable', isset($args['variable']) ? $args['variable'] : null, 'REQUEST');
-    
+
     // Check if another module variable is needed to compose the route
     $module_info = DBUtil::selectObjectArray('export_routes', "WHERE `module_name` = '".$module_name."' AND `variable` = '".$variable."'");
     $root = '';
@@ -87,7 +87,7 @@ function Export_adminapi_checkRoute($args){
 				}
 			}else{
 				$response = '0';
-			}	
+			}
 		}else{
 			if (file_exists($root.'/'.$folder)){
 				if (is_writable($root.'/'.$folder)){
@@ -106,7 +106,7 @@ function Export_adminapi_checkRoute($args){
 
 
 /**
- * Add or modify a variable 
+ * Add or modify a variable
  * @author:    Felix Casanellas (felix.casanellas@gmail.com)
  * @return:	   true if succed, error in the other cases
 */
@@ -115,18 +115,18 @@ function Export_adminapi_addVariable($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
 	$module = FormUtil::getPassedValue('module_name', isset($args['module_name']) ? $args['module_name'] : null, 'REQUEST');
 	$variable = FormUtil::getPassedValue('variable', isset($args['variable']) ? $args['variable'] : null, 'REQUEST');
 	$root_module = FormUtil::getPassedValue('root_module', isset($args['root_module']) ? $args['root_module'] : null, 'REQUEST');
 	$root_variable = FormUtil::getPassedValue('root_variable', isset($args['root_variable']) ? $args['root_variable'] : null, 'REQUEST');
 	$var_id = FormUtil::getPassedValue('var_id', isset($args['var_id']) ? $args['var_id'] : null, 'REQUEST');
-		
+
 	$dom = ZLanguage::getModuleDomain('Export');
-	
+
 	if ($variable == "") return LogUtil::registerError(__('Variable is not defined', $dom));
 	if (($root_module!='' && $root_variable=='') || ($root_module=='' && $root_variable!='')) return LogUtil::registerError(__('Additional module/variable is not defined', $dom));
-	
+
 	if ($var_id == ''){
 		// Is a new register
 		$items = array ('module_name' => $module,
@@ -147,14 +147,14 @@ function Export_adminapi_addVariable($args){
 		$where = "WHERE `id` = '".$var_id."'";
 		if (!DBUTil::updateObject ($items, 'export_routes', $where)) {
 		return LogUtil::registerError (__('Error! Update attempt failed.', $dom));
-		}		
+		}
 	}
-	return true;	
+	return true;
 }
 
 
 /**
- * Delete a variable 
+ * Delete a variable
  * @author:    Felix Casanellas (felix.casanellas@gmail.com)
  * @return:	   true if succed, error in the other cases
 */
@@ -163,23 +163,23 @@ function Export_adminapi_delVariable($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
 	$module = FormUtil::getPassedValue('module_name', isset($args['module_name']) ? $args['module_name'] : null, 'REQUEST');
 	$variable = FormUtil::getPassedValue('variable', isset($args['variable']) ? $args['variable'] : null, 'REQUEST');
-		
+
 	$dom = ZLanguage::getModuleDomain('Export');
-			
+
 	$where = "WHERE `module_name` = '".$module."' AND `variable` = '".$variable."'";
 	if(!DBUtil::deleteWhere('export_routes', $where)){
 		return LogUtil::registerError (__('Error! Remove attempt failed.', $dom));
 	}
-	
+
 	return true;
 }
 
 
 /**
- * Gets a package with all files required to export the selected modules 
+ * Gets a package with all files required to export the selected modules
  * @author Felix Casanellas (felix.casanellas@gmail.com)
  * @return zip file, false if error
  */
@@ -188,13 +188,13 @@ function Export_adminapi_getExportPack($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
     $modules_selected = FormUtil::getPassedValue('modules_selected', isset($args['modules_selected']) ? $args['modules_selected'] : null, 'REQUEST');
     $root_dir = FormUtil::getPassedValue('root_dir', isset($args['root_dir']) ? $args['root_dir'] : null, 'REQUEST');
 	if(empty($root_dir)) $root_dir = sys_get_temp_dir();
 	$root_dir .= "/export_pack_" . time();
 	mkdir($root_dir);
-	
+
     $max = count($modules_selected);
     for ($i=0; $i<$max; $i++){
         mkdir($root_dir . "/" . $modules_selected[$i]);
@@ -204,11 +204,11 @@ function Export_adminapi_getExportPack($args){
                                                           'pack_module_path'=>$root_dir . "/" . $modules_selected[$i]));
     }
     pnModAPIFunc ('Export', 'admin', 'exportUsers', array('root_dir'=>$root_dir));
-    
+
     //$zip = new ZipStream($fileName);
     $path = realpath($root_dir);
     $tar = new tar();
-    
+
 	$objects = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
 	foreach($objects as $name => $object){
 		$tar->addFile($name, 'export_pack/'.substr($name, strlen($path.'/')));
@@ -217,9 +217,9 @@ function Export_adminapi_getExportPack($args){
 	//$zip->finish();
 	$tar->toTar($path.'.tar',FALSE);
 	unset($tar);
-	
+
     recursive_remove_directory($path);
-    //return true;  
+    //return true;
     return $path.'.tar';
 }
 
@@ -234,14 +234,14 @@ function Export_adminapi_copyFiles($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-    
+
     $selected_module = FormUtil::getPassedValue('selected_module', isset($args['selected_module']) ? $args['selected_module'] : null, 'REQUEST');
     $pack_module_path = FormUtil::getPassedValue('pack_module_path', isset($args['pack_module_path']) ? $args['pack_module_path'] : null, 'REQUEST');
-    
+
 	$dst = $pack_module_path . '/files';
 	mkdir($dst);
 	$variables = DBUtil::selectObjectArray('export_routes', 'WHERE `module_name`="'.$selected_module.'"');
-	
+
 	foreach($variables as $var){
 		$route_chk = pnModAPIFunc ('Export', 'admin', 'checkRoute', array('module_name' => $var['module_name'],
 																		  'variable' => $var['variable']));
@@ -255,51 +255,51 @@ function Export_adminapi_copyFiles($args){
 
 
 /**
- * Create an XML file into the module folder. This file is required to export module's tables 
+ * Create an XML file into the module folder. This file is required to export module's tables
  * @author Felix Casanellas (felix.casanellas@gmail.com)
- * @return 
+ * @return
  */
 function Export_adminapi_getXMLFile($args){
 	// Security check
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
     $selected_module = FormUtil::getPassedValue('selected_module', isset($args['selected_module']) ? $args['selected_module'] : null, 'REQUEST');
-    $pack_module_path = FormUtil::getPassedValue('pack_module_path', isset($args['pack_module_path']) ? $args['pack_module_path'] : null, 'REQUEST'); 
-	
-	$dst = $pack_module_path . '/data'; 
+    $pack_module_path = FormUtil::getPassedValue('pack_module_path', isset($args['pack_module_path']) ? $args['pack_module_path'] : null, 'REQUEST');
+
+	$dst = $pack_module_path . '/data';
 	mkdir($dst);
-	
+
 	$where = "WHERE module_name='".$selected_module."'";
 	$tables_list = DBUtil::selectObjectArray('export_tables', $where);
-	
-	foreach($tables_list as $pos=>$table){ 
+
+	foreach($tables_list as $pos=>$table){
 		pnModDBInfoLoad($selected_module);
 	    $prefix_length = strlen(pnConfigGetVar('prefix')) + 1;
 	    $table = substr($table['table_name'], $prefix_length);
 	    pnModAPIFunc ('Export', 'admin', 'tableToXML', array('table'=>$table,
                                                             'path'=>$dst . "/"));
 	}
-	
+
 	// create XML metadata document
 	$doc = new DomDocument('1.0');
-	
+
 	$root = $doc->createElement('metadata');
     $root = $doc->appendChild($root);
-    
+
     $where = "WHERE `pn_name`='" . $selected_module . "'";
     $select = DBUtil::selectObjectArray('modules', $where);
     $module_version = $doc->createElement('moduleVersion');
     $module_version = $root->appendChild($module_version);
     $value = $doc->createTextNode($select['0']['version']);
     $value = $module_version->appendChild($value);
-    
+
     $zikula_version = $doc->createElement('zikulaVersion');
     $zikula_version = $root->appendChild($zikula_version);
     $value = $doc->createTextNode(pnConfigGetVar('Version_Num'));
     $value = $zikula_version->appendChild($value);
-    
+
     $module_vars = $doc->createElement('moduleVars');
     $module_vars = $root->appendChild($module_vars);
     $where = "WHERE `pn_modname`='" . $selected_module ."'";
@@ -311,7 +311,7 @@ function Export_adminapi_getXMLFile($args){
             $var_value = $doc->createTextNode(utf8_encode($var_value));
             $var_value = $var_node->appendChild($var_value);
     }
-    
+
     $xml_string = $doc->saveXML();
     $file = fopen($dst . "/metadata.xml", "w");
     fwrite($file, $xml_string);
@@ -320,54 +320,62 @@ function Export_adminapi_getXMLFile($args){
 
 
 /**
- * Take the export pack path and replace actual modules with new versions 
+ * Take the export pack path and replace actual modules with new versions
  * @author Felix Casanellas (felix.casanellas@gmail.com)
- * @return An array with the correctly imported modules 
+ * @return An array with the correctly imported modules
  */
 function Export_adminapi_importPack($args){
-    // Security check
-    if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
-		return LogUtil::registerPermissionError();
-	}
-	
+// Security check
+    if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) ||!pnUserLoggedIn()) {
+           return LogUtil::registerPermissionError();
+    }
+
     $dom = ZLanguage::getModuleDomain('Export');
     $pack_path = FormUtil::getPassedValue('pack_path', isset($args['pack_path']) ? $args['pack_path'] : null, 'REQUEST');
     $modules_selected = FormUtil::getPassedValue('modules_selected', isset($args['modules_selected']) ? $args['modules_selected'] : null, 'REQUEST');
-	
-	$root_dir = sys_get_temp_dir() . "/import_pack_" . time();
-	mkdir($root_dir);
-	
-	$tar = new tar();
-    $tar->openTar($pack_path,FALSE); 	 
-		
-	//if (exec('unzip '.$pack_path.' -d '.$root_dir)){
-	if ($tar->extractTar($root_dir)){
+
+    $root_dir = sys_get_temp_dir() . "/import_pack_" . time();
+    mkdir($root_dir);
+
+    $tar = new tar();
+    $tar->openTar($pack_path, FALSE);
+
+    if ($tar->extractTar($root_dir)){
         unlink($pack_path);
-        $dir_id = opendir($root_dir);
-        $dir_cont = readdir($dir_id);
+
+        //$dir_id = opendir($root_dir);
+        //$dir_cont = readdir($dir_id);
+        $dir_cont = scandir($root_dir);
+        $dir_cont = $dir_cont['2'];
+
         if($dir_cont != 'export_pack'){
             recursive_remove_directory($root_dir);
             return LogUtil::registerError(__('Corrupt package', $dom));
-            
-        } 
-        $dir_id = opendir($root_dir . '/' . $dir_cont);
+        }
+
+        $dir_cont_array = scandir($root_dir . '/' . $dir_cont);
         $imported_modules = array();
-        
+
         // Import all tables of system and modules
-        while($dir_cont = readdir($dir_id)){
+        foreach ($dir_cont_array as $dir_cont){
+        //while($dir_cont = readdir($dir_id)){
             if($dir_cont == 'System'){
                 //Check if the origin zikula version is the same of the actual version
                 $objDOM = simplexml_load_file($root_dir . '/export_pack/System/metadata.xml');
                 $zikula_version = utf8_decode($objDOM->zikulaVersion);
-                if ($zikula_version != pnConfigGetVar('Version_Num')){					
-					recursive_remove_directory($root_dir);
-                    return LogUtil::registerError(__f('Zikula version %s is required',$zikula_version , $dom));
+                if ($zikula_version != pnConfigGetVar('Version_Num')){
+                    recursive_remove_directory($root_dir);
+                    return LogUtil::registerError(__f('Zikula version %s is required', $zikula_version, $dom));
                 }
                 // Import all system tables
                 // "Categories" module tables must be loaded
                 pnModDBInfoLoad('Categories');
-                $data_dir_id = opendir($root_dir . '/export_pack/System');
-                while($data_dir_cont = readdir($data_dir_id)){
+
+                //$data_dir_id = opendir($root_dir . '/export_pack/System');
+                $data_dir_id = scandir($root_dir . '/export_pack/System');
+
+                foreach ($data_dir_id as $data_dir_cont){
+                //while($data_dir_cont = readdir($data_dir_id)){
                     if(($data_dir_cont != '.') && ($data_dir_cont != '..' && ($data_dir_cont != 'metadata.xml'))){
                         $table = substr($data_dir_cont, 0, -4);
                         $columns = DBUtil::metaColumnNames($table);
@@ -377,142 +385,153 @@ function Export_adminapi_importPack($args){
                             $fields = '';
                             $values = '';
                             foreach($row->children() as $field){
-								$fieldname = $field->getName();
-								if (in_array($fieldname, $columns)){
-									$fields .= $fieldname.',';
-									$field_value = str_replace("'", "''",  utf8_decode($field));
-									$field_value = str_replace("\''", "\'", $field_value);
-									$values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";	
-									//$values .= ($field == '$$NULL$$') ? "NULL," :"'".ereg_replace("[^\\](')[^']|^(')", "\\2'", utf8_decode($field))."',";
-									//$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
-								}
+                                $fieldname = $field->getName();
+                                if (in_array($fieldname, $columns)){
+                                    $fields .= $fieldname.',';
+                                    $field_value = str_replace("'", "''", utf8_decode($field));
+                                    $field_value = str_replace("\''", "\'", $field_value);
+                                    $values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";
+                                    //$values .= ($field == '$$NULL$$') ? "NULL," :"'".ereg_replace("[^\\](')[^']|^(')", "\\2'", utf8_decode($field))."',";
+                                    //$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
+                                }
                                 //$row_array[$field->getName()] = utf8_decode($field);
                             }
-                            $sql = "INSERT INTO ".pnConfigGetVar('prefix').'_'.$table."(".substr($fields,0,-1).") VALUES(".substr($values,0,-1).")";
+                            $sql = "INSERT INTO ".pnConfigGetVar('prefix').'_'.$table."(".substr($fields, 0, -1).") VALUES(".substr($values, 0, -1).")";
                             DBUtil::executeSQL($sql);
-                        }       
+                        }
                         /*
-                        foreach($XML_file->row as $row){
-                            $row_array = array();
-                            foreach($row->children() as $field){
-                                $row_array[$field->getName()] = utf8_decode($field);
-                            }
-                            DBUtil::insertObject($row_array, $table );  
-                        } */                       
-                    }  
+                          foreach($XML_file->row as $row){
+                          $row_array = array();
+                          foreach($row->children() as $field){
+                          $row_array[$field->getName()] = utf8_decode($field);
+                          }
+                          DBUtil::insertObject($row_array, $table );
+                          } */
+                    }
                 }
-                continue;   
-            }              
-                  
+                continue;
+            }
+
             //Check if folder corresponds to an installed module and the module is selected
             if(pnModAvailable($dir_cont)&&in_array($dir_cont, $modules_selected)){
-                pnModDBInfoLoad($dir_cont);                
+                pnModDBInfoLoad($dir_cont);
+                
                 // Check if the exported module version is the same of the installed module
                 $objDOM = simplexml_load_file($root_dir . '/export_pack/' . $dir_cont . '/data/metadata.xml');
                 $module_version = utf8_decode($objDOM->moduleVersion);
                 $where = "WHERE `pn_name`='" . $dir_cont . "'";
                 $select = DBUtil::selectObjectArray('modules', $where);
+
                 if($select['0']['version'] != $module_version){
                     recursive_remove_directory($root_dir);
                     return LogUtil::registerError(__f('The module %1$s requires the version %2$s', array($dir_cont, $module_version), $dom));
                 }
-                
+
                 // Delete old files and copy the imported module files to the server
                 // Get varibles from folder names
                 $routes = array();
                 $i = 0;
-                $files_dir_id = opendir($root_dir . '/export_pack/' . $dir_cont . '/files');
-                while($files_dir_cont = readdir($files_dir_id)){
-					if(($files_dir_cont != '.') && ($files_dir_cont != '..')){
-						$route = pnModAPIFunc('Export', 'admin', 'checkRoute', array( 
-																				'module_name' => $dir_cont,
-																				'variable' => $files_dir_cont));
-						if (substr($route, -1) == '/') $route = substr($route, 0, -1);
-						if ((!empty($route)) && ($route != '0')){
-							$routes[$i]['src'] = $root_dir . '/export_pack/' . $dir_cont . '/files/' . $files_dir_cont;						
-							$routes[$i]['dst'] = $route;
-							$i++;
-						}
-					}
-				}
-				// Delete old files
-				foreach ($routes as $route){
-					if (file_exists($route['dst'])){
-						if(!recursive_remove_directory($route['dst'])){
-							if (!is_writable($route['dst'])){
-								LogUtil::registerError(__f('It\'s not possible to remove <i>%s</i> directory because it\'s not writable', $route['dst'], $dom));
-							}else{
-								LogUtil::registerError(__f('It\'s not possible to remove <i>%s</i> directory', $route['dst'], $dom));
-							}							
-						}
-					}	
-				}
-				// Copy new files
-				foreach ($routes as $route){
-					if (!file_exists($route['dst'])) mkdir($route['dst']);
-					recurseCopy($route['src'], $route['dst']);
-				}                
-                
+
+                //$files_dir_id = opendir($root_dir . '/export_pack/' . $dir_cont . '/files');
+                $files_dir_id = scandir($root_dir . '/export_pack/' . $dir_cont . '/files');
+
+                foreach ($files_dir_id as $files_dir_cont){
+                    //while($files_dir_cont = readdir($files_dir_id)){
+                    if(($files_dir_cont != '.') && ($files_dir_cont != '..')){
+                        $route = pnModAPIFunc('Export', 'admin', 'checkRoute', array(
+                                                                                    'module_name' => $dir_cont,
+                                                                                    'variable' => $files_dir_cont));
+                        if (substr($route, -1) == '/') $route = substr($route, 0, -1);
+                        if ((!empty($route)) && ($route != '0')){
+                            $routes[$i]['src'] = $root_dir . '/export_pack/' . $dir_cont . '/files/' . $files_dir_cont;
+                            $routes[$i]['dst'] = $route;
+                            $i++;
+                        }
+                    }
+                }
+
+                // Delete old files
+                foreach ($routes as $route){
+                    if (file_exists($route['dst'])){
+                        if(!recursive_remove_directory($route['dst'])){
+                            if (!is_writable($route['dst'])){
+                                LogUtil::registerError(__f('It\'s not possible to remove <i>%s</i> directory because it\'s not writable', $route['dst'], $dom));
+                            }else{
+                                LogUtil::registerError(__f('It\'s not possible to remove <i>%s</i> directory', $route['dst'], $dom));
+                            }
+                        }
+                    }
+                }
+
+                // Copy new files
+                foreach ($routes as $route){
+                    if (!file_exists($route['dst'])) mkdir($route['dst']);
+                    recurseCopy($route['src'], $route['dst']);
+                }
+
                 // Copy the module variables from metadata.xml file
                 // Check if the variable contains a route to a directory. Then we don't overwrites it
                 $where = 'WHERE `module_name` = "'.$dir_cont.'"';
                 $def_vars = DBUtil::selectObjectArray('export_routes', $where);
                 $vars = array();
-                foreach ($def_vars as $var){ 
-					$vars[] = $var['variable'];
-					if(($var['root_module']==$var['module_name'])&&(!in_array($var['root_variable'], $vars))) $vars[] = $var['root_variable'];
-				}
+                foreach ($def_vars as $var){
+                    $vars[] = $var['variable'];
+                    if(($var['root_module']==$var['module_name'])&&(!in_array($var['root_variable'], $vars))) $vars[] = $var['root_variable'];
+                }
                 foreach($objDOM->moduleVars->children() as $var){
                     $var_name = $var->getName();
                     $var_value = utf8_decode($var);
                     if (!in_array($var_name, $vars)) pnModSetVar($dir_cont, $var_name, $var_value);
                 }
-                               
+
                 // Delete old database values and import new values
-                $data_dir_id = opendir($root_dir . '/export_pack/' . $dir_cont . '/data');
+
+                //$data_dir_id = opendir($root_dir . '/export_pack/' . $dir_cont . '/data');
+                $data_dir_id = scandir($root_dir . '/export_pack/' . $dir_cont . '/data');
                 // Load module tables
                 pnModDBInfoLoad($dir_cont);
                 $all_tables = pnDBGetTables();
-                
-                while($data_dir_cont = readdir($data_dir_id)){
+
+                foreach($data_dir_id as $data_dir_cont){
+                //while($data_dir_cont = readdir($data_dir_id)){
                     if(($data_dir_cont != '.') && ($data_dir_cont != '..' && ($data_dir_cont != 'metadata.xml'))){
                         $table = substr($data_dir_cont, 0, -4);
-                        
+
                         if (array_key_exists($table, $all_tables)){
-							$columns = DBUtil::metaColumnNames($table);
-							DBUtil::truncateTable($table);
-							$XML_file = simplexml_load_file($root_dir . '/export_pack/' . $dir_cont . '/data/' . $data_dir_cont);
-							foreach($XML_file->row as $row){
-								//$row_array = array();
-								$fields = '';
-								$values = '';
-								foreach($row->children() as $field){
-									if (in_array($field->getName(), $columns)){
-										$fields .= $field->getName().',';
-										$field_value = str_replace("'", "''",  utf8_decode($field));
-										$field_value = str_replace("\''", "\'", $field_value);
-										$values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";
-										//$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
-										//$row_array[$field->getName()] = utf8_decode($field);
-									}
-								}
-								$sql = "INSERT INTO ".pnConfigGetVar('prefix').'_'.$table."(".substr($fields,0,-1).") VALUES(".substr($values,0,-1).")";
-								//DBUtil::insertObject($row_array, $table);
-								DBUtil::executeSQL($sql);
-							}
-						}                        
-                    }  
+                            $columns = DBUtil::metaColumnNames($table);
+                            DBUtil::truncateTable($table);
+                            $XML_file = simplexml_load_file($root_dir . '/export_pack/' . $dir_cont . '/data/' . $data_dir_cont);
+                            foreach($XML_file->row as $row){
+                                //$row_array = array();
+                                $fields = '';
+                                $values = '';
+                                foreach($row->children() as $field){
+                                    if (in_array($field->getName(), $columns)){
+                                        $fields .= $field->getName().',';
+                                        $field_value = str_replace("'", "''", utf8_decode($field));
+                                        $field_value = str_replace("\''", "\'", $field_value);
+                                        $values .= ($field == '$$NULL$$') ? "NULL," :"'".$field_value."',";
+                                        //$values .= ($field == '$$NULL$$') ? "NULL," :"`".utf8_decode($field)."`,";
+                                        //$row_array[$field->getName()] = utf8_decode($field);
+                                    }
+                                }
+                                $sql = "INSERT INTO ".pnConfigGetVar('prefix').'_'.$table."(".substr($fields, 0, -1).") VALUES(".substr($values, 0, -1).")";
+                                //DBUtil::insertObject($row_array, $table);
+                                DBUtil::executeSQL($sql);
+                            }
+                        }
+                    }
                 }
-                
-           
-                $imported_modules[] = $dir_cont;             
+
+                $imported_modules[] = $dir_cont;
             }
         }
+
         //recursive_remove_directory($root_dir);
-        return $imported_modules;	     
-	}else{
-	    return LogUtil::registerError(__('It\'s not possible to open the package.', $dom));
-	}  
+        return $imported_modules;
+    }else{
+        return LogUtil::registerError(__('It\'s not possible to open the package.', $dom));
+    }
 }
 
 
@@ -527,13 +546,13 @@ function Export_adminapi_exportUsers($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
     $root_dir = FormUtil::getPassedValue('root_dir', isset($args['root_dir']) ? $args['root_dir'] : null, 'REQUEST');
-     
+
 	mkdir($root_dir . '/System');
-	
+
 	$tables_array = array('Users$$users', 'Users$$users_temp', 'Group$$groups', 'Group$$group_membership', 'Permissions$$group_perms', 'Categories$$categories_category', 'Categories$$categories_mapmeta', 'Categories$$categories_mapobj', 'Categories$$categories_registry');
-	
+
 	// Create an XML file for each table of the array
 	foreach($tables_array as $index=>$table){
 		$module_array = explode('$$', $table);
@@ -541,19 +560,19 @@ function Export_adminapi_exportUsers($args){
 		$table_name = $module_array['1'];
 		pnModDBInfoLoad($module_name);
 	    pnModAPIFunc ('Export', 'admin', 'tableToXML', array('table'=>$table_name,
-                                                            'path'=>$root_dir . '/System/'));	    
+                                                            'path'=>$root_dir . '/System/'));
 	}
-	
+
 	// Ceate an XML metadata file
-	$doc = new DomDocument('1.0');	
+	$doc = new DomDocument('1.0');
 	$root = $doc->createElement('metadata');
     $root = $doc->appendChild($root);
-    
+
     $zikula_version = $doc->createElement('zikulaVersion');
     $zikula_version = $root->appendChild($zikula_version);
     $value = $doc->createTextNode(pnConfigGetVar('Version_Num'));
     $value = $zikula_version->appendChild($value);
-    
+
     $xml_string = $doc->saveXML();
     $file = fopen($root_dir . '/System/metadata.xml', "w");
     fwrite($file, $xml_string);
@@ -573,10 +592,10 @@ function Export_adminapi_tableToXML($args){
 	}
     $path = FormUtil::getPassedValue('path', isset($args['path']) ? $args['path'] : null, 'REQUEST');
     $table = FormUtil::getPassedValue('table', isset($args['table']) ? $args['table'] : null, 'REQUEST');
-    
+
     //$table_content = DBUtil::selectObjectArray($table);
 	//$table_rows = DBUtil::selectObjectArray($table);
-	
+
 	$dbconn =& pnDBGetConn(true);
 	$pntable =& pnDBGetTables();
 	$table_rows =& $dbconn->Execute('SELECT * FROM '.pnConfigGetVar('prefix').'_'.$table);
@@ -594,7 +613,7 @@ function Export_adminapi_tableToXML($args){
 		$j = 0;
 		$i++;
 	}
-	/*	
+	/*
 	$table_column = pnDBGetTables();
 	$table_column = $table_column[$table.'_column'];
 	foreach ($table_rows as $i => $row){
@@ -605,13 +624,13 @@ function Export_adminapi_tableToXML($args){
 		}
 	}
 	*/
-	
+
     // create a new XML document
     $doc = new DomDocument('1.0');
     // create root node
     $root = $doc->createElement($table);
     $root = $doc->appendChild($root);
-    
+
     // process one row at a time
     foreach($table_content as $row){
         // add node for each row
@@ -625,7 +644,7 @@ function Export_adminapi_tableToXML($args){
             $value = $child->appendChild($value);
         }
     }
-    
+
     $xml_string = $doc->saveXML();
     $file = fopen($path . $table . '.xml', "w");
     fwrite($file, $xml_string);
@@ -643,15 +662,15 @@ function Export_adminapi_getModulesFromPack($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
     $pack_path = FormUtil::getPassedValue('pack_path', isset($args['pack_path']) ? $args['pack_path'] : null, 'REQUEST');
 	$list = array();
 	$versions_list = array();
 	$zk_version = '';
-	
+
 	$tar = new tar();
-	if(!$tar->openTar($pack_path,FALSE)) return LogUtil::registerError(__('Could not open package', $dom)); 
-    
+	if(!$tar->openTar($pack_path,FALSE)) return LogUtil::registerError(__('Could not open package', $dom));
+
 	if($tar->numFiles > 0) {
 		foreach($tar->files as $id => $information) {
 			$content['name'] = $information[name];
@@ -668,9 +687,9 @@ function Export_adminapi_getModulesFromPack($args){
 					$zk_version = substr($zk_version['1'], 1, strlen($zk_version['1'])-3);
 				}
 			}
-		}	
+		}
 	}
-		
+
 	/*$za = new ZipArchive();
 	$za->open($pack_path);
 
@@ -678,7 +697,7 @@ function Export_adminapi_getModulesFromPack($args){
 		$list[] = $za->statIndex($i);
 	}
 	$za->close();*/
-	
+
 	//$zipfile = new PclZip($pack_path);
 	//$list = $zip->listContent();
 	$last_module = '';
@@ -686,7 +705,7 @@ function Export_adminapi_getModulesFromPack($args){
 	$module_name = array();
 	$i = 1;
 	$j = 1;
-		
+
 	foreach($list as $key=>$folder){
 	    $filename = $folder['name'];
 	    $filename = explode('/', $filename);
@@ -702,7 +721,7 @@ function Export_adminapi_getModulesFromPack($args){
 						$var_defined = DBUtil::selectObjectArray('export_routes', 'WHERE `module_name`="'.$filename['1'].'" AND `variable`="'.$filename['3'].'"');
 						if (empty($var_defined)){
 							$modules_list['Available'][$filename['1']]['var_chk'][$filename['3']] = '-1';
-						}																									
+						}
 					}
 				}
 			}elseif (in_array($filename['1'], $modules_list['Unavailable'])){
@@ -716,9 +735,9 @@ function Export_adminapi_getModulesFromPack($args){
 	                $modules_list['Available'][$filename['1']]['req_version'] = $versions_list[$filename['1']];
 	                $modules_list['Available'][$filename['1']]['local_version'] = $select['0']['version'];
 	                if (!in_array($filename['1'], $module_name)) $module_name[] = $filename['1'];
-	            }else{    
-					$modules_list['Unavailable'][] = $filename['1'];  	                    
-	            }				
+	            }else{
+					$modules_list['Unavailable'][] = $filename['1'];
+	            }
 			}
 		}
 	}
@@ -737,13 +756,13 @@ function Export_adminapi_backupModules($args){
     if (!SecurityUtil::checkPermission( 'Export::', '::', ACCESS_ADMIN) || !pnUserLoggedIn()) {
 		return LogUtil::registerPermissionError();
 	}
-	
+
     $modules_selected = FormUtil::getPassedValue('modules_selected', isset($args['modules_selected']) ? $args['modules_selected'] : null, 'REQUEST');
 	$backup_folder = pnModGetVar("export", "backup_folder");
 	if (isset($GLOBALS['PNConfig']['Multisites']['multi']) && $GLOBALS['PNConfig']['Multisites']['multi'] == 1){
 		$backup_folder = $GLOBALS['PNConfig']['Multisites']['filesRealPath'].'/data/'.$backup_folder;
 	}
-	
+
 	if($backup_file = pnModAPIFunc ('Export', 'admin', 'getExportPack', array('modules_selected'=>$modules_selected,
                                                                    		  'root_dir' => $backup_folder))){
 	    return true;
@@ -751,5 +770,5 @@ function Export_adminapi_backupModules($args){
         return LogUtil::registerError(__('The backup package cannot be generated', $dom));
     }
 }
-	
+
 
